@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KMeans Clustering Lab</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Outfit:wght@300;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #141820;
+    --surface: #1b2028;
+    --surface-2: #232a35;
+    --border: #2d3545;
+    --text: #c8cdd8;
+    --text-dim: #6b7280;
+    --text-bright: #eef0f4;
+    --pink: #FF1F5B;
+    --green: #00CD6C;
+    --blue: #009ADE;
+    --purple: #AF58BA;
+    --yellow: #FFC61E;
+    --orange: #F28522;
+    --grey: #A0B1BA;
+    --grid: rgba(255,255,255,0.03);
+    --grid-accent: rgba(255,255,255,0.06);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Outfit', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  /* Subtle scan-line texture */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.03) 2px,
+      rgba(0,0,0,0.03) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  .app {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 28px 24px 40px;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    margin-bottom: 6px;
+  }
+  .header h1 {
+    font-family: 'Outfit', sans-serif;
+    font-weight: 700;
+    font-size: 1.35rem;
+    letter-spacing: -0.02em;
+    color: var(--text-bright);
+  }
+  .header .tag {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--blue);
+    background: rgba(0,154,222,0.1);
+    border: 1px solid rgba(0,154,222,0.2);
+    padding: 2px 8px;
+    border-radius: 3px;
+  }
+  .breadcrumb {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    margin-bottom: 20px;
+    letter-spacing: 0.02em;
+  }
+  .breadcrumb span { color: var(--blue); }
+
+  /* Main layout */
+  .workspace {
+    display: grid;
+    grid-template-columns: 1fr 260px;
+    gap: 16px;
+  }
+
+  /* Canvas panel */
+  .viewport {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    position: relative;
+  }
+  .viewport-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-2);
+  }
+  .viewport-bar .label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--text-dim);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .viewport-bar .coords {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--text-dim);
+  }
+  canvas {
+    display: block;
+    cursor: crosshair;
+    width: 100%;
+  }
+  .legend-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 8px 14px;
+    border-top: 1px solid var(--border);
+    background: var(--surface-2);
+    min-height: 32px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--text-dim);
+  }
+  .legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    box-shadow: 0 0 6px currentColor;
+  }
+
+  /* Control panel */
+  .panel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .card-header {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-2);
+  }
+  .card-body {
+    padding: 14px;
+  }
+
+  /* K selector */
+  .k-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .k-val {
+    font-family: 'DM Mono', monospace;
+    font-size: 2.2rem;
+    font-weight: 500;
+    color: var(--blue);
+    line-height: 1;
+    min-width: 36px;
+    text-align: center;
+    text-shadow: 0 0 20px rgba(0,154,222,0.3);
+  }
+  .k-slider-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .k-slider-wrap .range-labels {
+    display: flex;
+    justify-content: space-between;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--text-dim);
+  }
+  input[type=range] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--blue);
+    box-shadow: 0 0 8px rgba(0,154,222,0.4);
+    cursor: grab;
+  }
+
+  /* Buttons */
+  .btn-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  .btn-full { grid-column: 1 / -1; }
+  button {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 0.03em;
+    padding: 9px 0;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    background: var(--surface-2);
+    color: var(--text);
+    position: relative;
+    overflow: hidden;
+  }
+  button:active { transform: scale(0.97); }
+  .btn-run {
+    background: rgba(0,154,222,0.12);
+    border-color: rgba(0,154,222,0.3);
+    color: var(--blue);
+  }
+  .btn-run:hover { background: rgba(0,154,222,0.22); box-shadow: 0 0 12px rgba(0,154,222,0.15); }
+  .btn-step {
+    background: rgba(0,205,108,0.1);
+    border-color: rgba(0,205,108,0.25);
+    color: var(--green);
+  }
+  .btn-step:hover { background: rgba(0,205,108,0.2); box-shadow: 0 0 12px rgba(0,205,108,0.12); }
+  .btn-sample {
+    background: rgba(175,88,186,0.1);
+    border-color: rgba(175,88,186,0.25);
+    color: var(--purple);
+  }
+  .btn-sample:hover { background: rgba(175,88,186,0.2); box-shadow: 0 0 12px rgba(175,88,186,0.12); }
+  .btn-reset {
+    background: rgba(255,31,91,0.08);
+    border-color: rgba(255,31,91,0.2);
+    color: var(--pink);
+  }
+  .btn-reset:hover { background: rgba(255,31,91,0.18); box-shadow: 0 0 12px rgba(255,31,91,0.12); }
+
+  /* Status readout */
+  .readout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--border);
+    border-radius: 0 0 6px 6px;
+    overflow: hidden;
+  }
+  .readout-item {
+    background: var(--surface);
+    padding: 8px 12px;
+  }
+  .readout-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.58rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 2px;
+  }
+  .readout-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-bright);
+  }
+  .readout-item.full { grid-column: 1 / -1; }
+
+  /* Metrics */
+  .metric-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .metric-row:last-child { margin-bottom: 0; }
+  .metric-info { flex: 1; }
+  .metric-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 3px;
+  }
+  .metric-val {
+    font-family: 'DM Mono', monospace;
+    font-size: 1.1rem;
+    font-weight: 500;
+  }
+  .bar-track {
+    width: 60px;
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.4s ease;
+  }
+
+  /* Hint text */
+  .hint {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.62rem;
+    color: var(--text-dim);
+    line-height: 1.6;
+    padding: 10px 14px;
+    border-left: 2px solid var(--border);
+    margin: 0;
+  }
+  .hint kbd {
+    display: inline-block;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 0 4px;
+    font-size: 0.6rem;
+    color: var(--text);
+  }
+
+  /* Status pulse */
+  .status-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--text-dim);
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  .status-dot.active {
+    background: var(--green);
+    box-shadow: 0 0 6px var(--green);
+    animation: pulse 1.5s ease infinite;
+  }
+  .status-dot.done {
+    background: var(--blue);
+    box-shadow: 0 0 6px var(--blue);
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* Canvas empty state */
+  .empty-state {
+    position: absolute;
+    inset: 36px 0 32px 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    opacity: 0.35;
+    transition: opacity 0.3s;
+  }
+  .empty-state.hidden { opacity: 0; }
+  .empty-state svg { margin-bottom: 12px; }
+  .empty-state p {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    text-align: center;
+    line-height: 1.6;
+  }
+
+  /* Computation Log */
+  .log-section {
+    margin-top: 16px;
+    display: none;
+  }
+  .log-section.visible { display: block; }
+  .log-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .log-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-2);
+  }
+  .log-header .label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+  .log-header .iter-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--blue);
+    background: rgba(0,154,222,0.1);
+    border: 1px solid rgba(0,154,222,0.2);
+    padding: 1px 8px;
+    border-radius: 3px;
+  }
+  .log-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--border);
+  }
+  .log-phase {
+    background: var(--surface);
+    padding: 12px 14px;
+  }
+  .log-phase.full { grid-column: 1 / -1; }
+  .phase-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .phase-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    font-size: 0.55rem;
+    font-weight: 500;
+    color: #fff;
+  }
+  .log-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.62rem;
+  }
+  .log-table th {
+    text-align: left;
+    color: var(--text-dim);
+    font-weight: 400;
+    padding: 2px 6px 2px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.58rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .log-table td {
+    padding: 3px 6px 3px 0;
+    color: var(--text);
+    border-bottom: 1px solid rgba(45,53,69,0.4);
+  }
+  .log-table tr:last-child td { border-bottom: none; }
+  .log-table .winner {
+    font-weight: 500;
+  }
+  .log-table .dim { color: var(--text-dim); }
+  .log-formula {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    background: rgba(0,0,0,0.2);
+    padding: 6px 10px;
+    border-radius: 3px;
+    margin-bottom: 8px;
+    line-height: 1.6;
+    overflow-x: auto;
+  }
+  .log-formula .hl { color: var(--text-bright); }
+  .log-arrow {
+    color: var(--text-dim);
+    margin: 0 2px;
+  }
+  .log-note {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.58rem;
+    color: var(--text-dim);
+    margin-top: 6px;
+    line-height: 1.5;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <h1>KMeans Clustering Lab</h1>
+    <div class="tag">Interactive</div>
+  </div>
+  <div class="breadcrumb">SIT720 <span>/</span> Week 3 <span>/</span> Unsupervised Learning <span>/</span> KMeans</div>
+
+  <div class="workspace">
+    <!-- Canvas viewport -->
+    <div class="viewport">
+      <div class="viewport-bar">
+        <div class="label">Observation Space</div>
+        <div class="coords" id="coords">---, ---</div>
+      </div>
+      <div style="position:relative">
+        <canvas id="canvas" width="760" height="520"></canvas>
+        <div class="empty-state" id="empty-state">
+          <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+            <circle cx="20" cy="20" r="18" stroke="currentColor" stroke-width="1" stroke-dasharray="4 3" opacity="0.4"/>
+            <line x1="20" y1="12" x2="20" y2="28" stroke="currentColor" stroke-width="1.5" opacity="0.5"/>
+            <line x1="12" y1="20" x2="28" y2="20" stroke="currentColor" stroke-width="1.5" opacity="0.5"/>
+          </svg>
+          <p>Click anywhere to place data points<br>or generate sample data to begin</p>
+        </div>
+      </div>
+      <div class="legend-bar" id="legend"></div>
+    </div>
+
+    <!-- Control panel -->
+    <div class="panel">
+      <!-- K Control -->
+      <div class="card">
+        <div class="card-header">Clusters (K)</div>
+        <div class="card-body">
+          <div class="k-row">
+            <div class="k-val" id="k-display">3</div>
+            <div class="k-slider-wrap">
+              <input type="range" id="k-slider" min="2" max="8" value="3">
+              <div class="range-labels"><span>2</span><span>5</span><span>8</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="card">
+        <div class="card-header">Actions</div>
+        <div class="card-body">
+          <div class="btn-grid">
+            <button class="btn-sample btn-full" id="btn-sample">Generate Sample</button>
+            <button class="btn-run" id="btn-run">Run</button>
+            <button class="btn-step" id="btn-step">Step</button>
+            <button class="btn-reset btn-full" id="btn-reset">Clear All</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Status -->
+      <div class="card">
+        <div class="card-header">Status</div>
+        <div class="readout">
+          <div class="readout-item">
+            <div class="readout-label">Points</div>
+            <div class="readout-value" id="r-points">0</div>
+          </div>
+          <div class="readout-item">
+            <div class="readout-label">Iteration</div>
+            <div class="readout-value" id="r-iter">--</div>
+          </div>
+          <div class="readout-item full">
+            <div class="readout-label">State</div>
+            <div class="readout-value" id="r-status"><span class="status-dot"></span>Awaiting input</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Metrics -->
+      <div class="card" id="metric-section" style="display:none">
+        <div class="card-header">Metrics</div>
+        <div class="card-body">
+          <div class="metric-row">
+            <div class="metric-info">
+              <div class="metric-label">Distortion (SSE)</div>
+              <div class="metric-val" id="distortion-val" style="color:var(--orange)">--</div>
+            </div>
+          </div>
+          <div class="metric-row">
+            <div class="metric-info">
+              <div class="metric-label">Silhouette</div>
+              <div class="metric-val" id="sil-val" style="color:var(--green)">--</div>
+            </div>
+            <div class="bar-track">
+              <div class="bar-fill" id="sil-bar" style="width:0;background:var(--green)"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Hint -->
+      <p class="hint">
+        <kbd>Click</kbd> canvas to add points.
+        <kbd>Generate</kbd> for quick start.
+        <kbd>Step</kbd> runs one iteration.
+        <kbd>Run</kbd> animates to convergence.
+      </p>
+    </div>
+  </div>
+
+  <!-- Computation Log -->
+  <div class="log-section" id="log-section">
+    <div class="log-card">
+      <div class="log-header">
+        <div class="label">Computation Log</div>
+        <div class="iter-badge" id="log-iter">Iteration --</div>
+      </div>
+      <div class="log-body" id="log-body">
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const COLORS = ['#FF1F5B','#00CD6C','#009ADE','#AF58BA','#FFC61E','#F28522','#A0B1BA','#A6761D'];
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+let points = [];
+let centroids = [];
+let assignments = [];
+let K = 3;
+let iteration = 0;
+let converged = false;
+let running = false;
+
+const kSlider = document.getElementById('k-slider');
+const kDisplay = document.getElementById('k-display');
+const statsPoints = document.getElementById('r-points');
+const statsIter = document.getElementById('r-iter');
+const statsStatus = document.getElementById('r-status');
+const legendEl = document.getElementById('legend');
+const metricSection = document.getElementById('metric-section');
+const emptyState = document.getElementById('empty-state');
+const coordsEl = document.getElementById('coords');
+const logSection = document.getElementById('log-section');
+const logBody = document.getElementById('log-body');
+const logIter = document.getElementById('log-iter');
+let prevCentroids = [];
+
+// Mouse coordinate tracking
+canvas.addEventListener('mousemove', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const x = ((e.clientX - rect.left) * scaleX).toFixed(0);
+  const y = ((e.clientY - rect.top) * scaleX).toFixed(0);
+  coordsEl.textContent = `${x}, ${y}`;
+});
+canvas.addEventListener('mouseleave', () => { coordsEl.textContent = '---, ---'; });
+
+kSlider.addEventListener('input', () => {
+  K = parseInt(kSlider.value);
+  kDisplay.textContent = K;
+  resetClustering();
+});
+
+canvas.addEventListener('click', (e) => {
+  if (running) return;
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const x = (e.clientX - rect.left) * scaleX;
+  const y = (e.clientY - rect.top) * scaleX;
+  points.push({ x, y });
+  resetClustering();
+  draw();
+  setStatus('ready', 'Ready -- click Run or Step');
+});
+
+document.getElementById('btn-sample').addEventListener('click', generateSample);
+document.getElementById('btn-run').addEventListener('click', runKMeans);
+document.getElementById('btn-step').addEventListener('click', stepKMeans);
+document.getElementById('btn-reset').addEventListener('click', () => {
+  points = [];
+  resetClustering();
+  draw();
+  setStatus('idle', 'Awaiting input');
+  metricSection.style.display = 'none';
+});
+
+function generateSample() {
+  points = [];
+  const numPerCluster = 60 + Math.floor(Math.random() * 40);
+  const numClusters = 3 + Math.floor(Math.random() * 3);
+  for (let c = 0; c < numClusters; c++) {
+    const cx = 80 + Math.random() * (canvas.width - 160);
+    const cy = 80 + Math.random() * (canvas.height - 160);
+    const spread = 35 + Math.random() * 50;
+    for (let i = 0; i < numPerCluster; i++) {
+      points.push({
+        x: cx + (Math.random() - 0.5) * 2 * spread + (Math.random() - 0.5) * 10,
+        y: cy + (Math.random() - 0.5) * 2 * spread + (Math.random() - 0.5) * 10
+      });
+    }
+  }
+  resetClustering();
+  draw();
+  setStatus('ready', `${points.length} points in ~${numClusters} clusters`);
+}
+
+function resetClustering() {
+  centroids = [];
+  prevCentroids = [];
+  assignments = [];
+  iteration = 0;
+  converged = false;
+  running = false;
+  legendEl.innerHTML = '';
+  metricSection.style.display = 'none';
+  logSection.classList.remove('visible');
+  statsPoints.textContent = points.length;
+  statsIter.textContent = '--';
+}
+
+function setStatus(state, msg) {
+  statsPoints.textContent = points.length;
+  statsIter.textContent = iteration || '--';
+  let dot = '<span class="status-dot"></span>';
+  if (state === 'running') dot = '<span class="status-dot active"></span>';
+  else if (state === 'done') dot = '<span class="status-dot done"></span>';
+  statsStatus.innerHTML = dot + msg;
+}
+
+function initCentroids() {
+  centroids = [];
+  const idx = Math.floor(Math.random() * points.length);
+  centroids.push({ x: points[idx].x, y: points[idx].y });
+  for (let k = 1; k < K; k++) {
+    const dists = points.map(p => {
+      let minD = Infinity;
+      centroids.forEach(c => { const d = dist(p, c); if (d < minD) minD = d; });
+      return minD * minD;
+    });
+    const sum = dists.reduce((a, b) => a + b, 0);
+    let r = Math.random() * sum;
+    for (let i = 0; i < dists.length; i++) {
+      r -= dists[i];
+      if (r <= 0) { centroids.push({ x: points[i].x, y: points[i].y }); break; }
+    }
+  }
+}
+
+function dist(a, b) { return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2); }
+
+function assignPoints() {
+  const prev = [...assignments];
+  assignments = points.map(p => {
+    let minD = Infinity, best = 0;
+    centroids.forEach((c, i) => { const d = dist(p, c); if (d < minD) { minD = d; best = i; } });
+    return best;
+  });
+  if (prev.length === assignments.length && prev.every((v, i) => v === assignments[i])) converged = true;
+}
+
+function updateCentroids() {
+  for (let k = 0; k < K; k++) {
+    const cluster = points.filter((_, i) => assignments[i] === k);
+    if (cluster.length === 0) continue;
+    centroids[k] = {
+      x: cluster.reduce((s, p) => s + p.x, 0) / cluster.length,
+      y: cluster.reduce((s, p) => s + p.y, 0) / cluster.length
+    };
+  }
+}
+
+function computeDistortion() {
+  let sse = 0;
+  points.forEach((p, i) => { const c = centroids[assignments[i]]; sse += (p.x - c.x) ** 2 + (p.y - c.y) ** 2; });
+  return sse;
+}
+
+function computeSilhouette() {
+  if (points.length < K || K < 2) return 0;
+  const n = points.length;
+  const sils = [];
+  for (let i = 0; i < n; i++) {
+    const ci = assignments[i];
+    let aSum = 0, aCount = 0;
+    for (let j = 0; j < n; j++) {
+      if (i !== j && assignments[j] === ci) { aSum += dist(points[i], points[j]); aCount++; }
+    }
+    const a = aCount > 0 ? aSum / aCount : 0;
+    let b = Infinity;
+    for (let k = 0; k < K; k++) {
+      if (k === ci) continue;
+      let bSum = 0, bCount = 0;
+      for (let j = 0; j < n; j++) { if (assignments[j] === k) { bSum += dist(points[i], points[j]); bCount++; } }
+      if (bCount > 0) b = Math.min(b, bSum / bCount);
+    }
+    if (b === Infinity) b = 0;
+    sils.push(Math.max(a, b) === 0 ? 0 : (b - a) / Math.max(a, b));
+  }
+  return sils.reduce((s, v) => s + v, 0) / sils.length;
+}
+
+function stepKMeans() {
+  if (points.length < K) { setStatus('idle', `Need >= ${K} points`); return; }
+  if (converged) { setStatus('done', `Converged @ iter ${iteration}`); return; }
+  if (centroids.length === 0) {
+    initCentroids();
+    prevCentroids = centroids.map(c => ({...c}));
+    assignPoints();
+    iteration = 1;
+  } else {
+    prevCentroids = centroids.map(c => ({...c}));
+    updateCentroids();
+    assignPoints();
+    iteration++;
+  }
+  draw(); showMetrics(); buildLog();
+  setStatus(converged ? 'done' : 'running', converged ? `Converged @ iter ${iteration}` : `Iteration ${iteration}`);
+}
+
+async function runKMeans() {
+  if (points.length < K) { setStatus('idle', `Need >= ${K} points`); return; }
+  running = true;
+  resetClustering();
+  initCentroids();
+  for (let i = 0; i < 50; i++) {
+    assignPoints(); iteration = i + 1;
+    draw(); showMetrics();
+    setStatus('running', `Running iter ${iteration}...`);
+    await sleep(280);
+    if (converged) break;
+    updateCentroids(); draw();
+    await sleep(180);
+  }
+  running = false;
+  setStatus('done', converged ? `Converged @ iter ${iteration}` : `Max iters (${iteration})`);
+}
+
+function showMetrics() {
+  metricSection.style.display = 'block';
+  document.getElementById('distortion-val').textContent = computeDistortion().toFixed(0);
+  if (points.length <= 500) {
+    const s = computeSilhouette();
+    document.getElementById('sil-val').textContent = s.toFixed(3);
+    document.getElementById('sil-bar').style.width = Math.max(0, (s + 1) / 2 * 100) + '%';
+  } else {
+    document.getElementById('sil-val').textContent = 'n > 500';
+  }
+}
+
+function buildLog() {
+  logSection.classList.add('visible');
+  logIter.textContent = `Iteration ${iteration}`;
+
+  // Pick a few sample points to show assignment calculation (max 3)
+  const sampleIdxs = [];
+  const step = Math.max(1, Math.floor(points.length / 3));
+  for (let i = 0; i < Math.min(3, points.length); i++) sampleIdxs.push(i * step);
+
+  // Phase 1: Assignment
+  let assignHTML = `<div class="log-phase">`;
+  assignHTML += `<div class="phase-title"><span class="phase-num" style="background:var(--blue)">1</span><span style="color:var(--blue)">Assign Points</span></div>`;
+  assignHTML += `<div class="log-formula">For each point, compute distance to every centroid.<br>Assign to <span class="hl">nearest</span> centroid (argmin).</div>`;
+  assignHTML += `<table class="log-table"><tr><th>Point</th>`;
+  for (let k = 0; k < K; k++) assignHTML += `<th style="color:${COLORS[k]}">d(C${k+1})</th>`;
+  assignHTML += `<th>Assign</th></tr>`;
+
+  sampleIdxs.forEach(idx => {
+    const p = points[idx];
+    assignHTML += `<tr><td class="dim">(${p.x.toFixed(0)}, ${p.y.toFixed(0)})</td>`;
+    let minD = Infinity, bestK = 0;
+    for (let k = 0; k < K; k++) {
+      const d = dist(p, centroids[k]);
+      if (d < minD) { minD = d; bestK = k; }
+    }
+    for (let k = 0; k < K; k++) {
+      const d = dist(p, centroids[k]);
+      const isWinner = (k === bestK);
+      assignHTML += `<td class="${isWinner ? 'winner' : 'dim'}" style="${isWinner ? 'color:'+COLORS[k] : ''}">${d.toFixed(1)}</td>`;
+    }
+    assignHTML += `<td class="winner" style="color:${COLORS[bestK]}">C${bestK+1}</td></tr>`;
+  });
+
+  if (points.length > 3) {
+    assignHTML += `<tr><td class="dim" colspan="${K+2}">... ${points.length - 3} more points</td></tr>`;
+  }
+  assignHTML += `</table>`;
+
+  // Show how many changed
+  const changed = prevCentroids.length > 0 ?
+    assignments.filter((a, i) => {
+      let prevBest = 0, prevMinD = Infinity;
+      prevCentroids.forEach((c, k) => { const d = dist(points[i], c); if(d<prevMinD){prevMinD=d;prevBest=k;} });
+      return a !== prevBest;
+    }).length : points.length;
+  assignHTML += `<div class="log-note">${changed} point${changed!==1?'s':''} changed cluster this iteration.${converged ? ' No changes -- converged.' : ''}</div>`;
+  assignHTML += `</div>`;
+
+  // Phase 2: Update Centroids
+  let updateHTML = `<div class="log-phase">`;
+  updateHTML += `<div class="phase-title"><span class="phase-num" style="background:var(--green)">2</span><span style="color:var(--green)">Update Centroids</span></div>`;
+  updateHTML += `<div class="log-formula">New centroid = <span class="hl">mean</span> of all points in cluster.<br>C_k = (1/n_k) * sum(x_i) for x_i in cluster k</div>`;
+  updateHTML += `<table class="log-table"><tr><th>Cluster</th><th>Points</th><th>Old Center</th><th>New Center</th><th>Moved</th></tr>`;
+
+  for (let k = 0; k < K; k++) {
+    const count = assignments.filter(a => a === k).length;
+    const oldC = prevCentroids[k] || centroids[k];
+    const newC = centroids[k];
+    const moved = dist(oldC, newC);
+    updateHTML += `<tr>`;
+    updateHTML += `<td style="color:${COLORS[k]}">C${k+1}</td>`;
+    updateHTML += `<td>${count}</td>`;
+    updateHTML += `<td class="dim">(${oldC.x.toFixed(1)}, ${oldC.y.toFixed(1)})</td>`;
+    updateHTML += `<td style="color:${COLORS[k]}">(${newC.x.toFixed(1)}, ${newC.y.toFixed(1)})</td>`;
+    updateHTML += `<td>${moved.toFixed(1)}px</td>`;
+    updateHTML += `</tr>`;
+  }
+  updateHTML += `</table>`;
+
+  const totalMoved = centroids.reduce((s, c, k) => {
+    const old = prevCentroids[k] || c;
+    return s + dist(old, c);
+  }, 0);
+  updateHTML += `<div class="log-note">Total centroid movement: ${totalMoved.toFixed(1)}px${totalMoved < 0.5 ? ' (nearly zero -- convergence)' : ''}</div>`;
+  updateHTML += `</div>`;
+
+  logBody.innerHTML = assignHTML + updateHTML;
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function hexToRgb(hex) {
+  return { r: parseInt(hex.slice(1,3),16), g: parseInt(hex.slice(3,5),16), b: parseInt(hex.slice(5,7),16) };
+}
+
+function draw() {
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  // Background
+  ctx.fillStyle = '#0e1117';
+  ctx.fillRect(0, 0, W, H);
+
+  // Grid -- fine
+  ctx.strokeStyle = 'rgba(255,255,255,0.025)';
+  ctx.lineWidth = 0.5;
+  for (let x = 0; x < W; x += 20) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+  for (let y = 0; y < H; y += 20) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+  // Grid -- major
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  ctx.lineWidth = 0.5;
+  for (let x = 0; x < W; x += 100) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+  for (let y = 0; y < H; y += 100) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+
+  // Empty state
+  emptyState.classList.toggle('hidden', points.length > 0);
+
+  // Voronoi regions
+  if (centroids.length > 0) {
+    const imgData = ctx.createImageData(W, H);
+    const step = 3;
+    for (let py = 0; py < H; py += step) {
+      for (let px = 0; px < W; px += step) {
+        let minD = Infinity, best = 0;
+        centroids.forEach((c, i) => { const d = (px-c.x)**2+(py-c.y)**2; if(d<minD){minD=d;best=i;} });
+        const col = hexToRgb(COLORS[best % COLORS.length]);
+        for (let dy = 0; dy < step && py+dy < H; dy++) {
+          for (let dx = 0; dx < step && px+dx < W; dx++) {
+            const idx = ((py+dy)*W+(px+dx))*4;
+            imgData.data[idx]=col.r; imgData.data[idx+1]=col.g; imgData.data[idx+2]=col.b; imgData.data[idx+3]=18;
+          }
+        }
+      }
+    }
+    ctx.putImageData(imgData, 0, 0);
+    // Redraw grid on top
+    ctx.strokeStyle = 'rgba(255,255,255,0.02)';
+    for (let x = 0; x < W; x += 100) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+    for (let y = 0; y < H; y += 100) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+  }
+
+  // Connection lines (faint) from points to centroids
+  if (centroids.length > 0 && assignments.length > 0) {
+    ctx.lineWidth = 0.4;
+    points.forEach((p, i) => {
+      const c = centroids[assignments[i]];
+      const col = hexToRgb(COLORS[assignments[i] % COLORS.length]);
+      ctx.strokeStyle = `rgba(${col.r},${col.g},${col.b},0.08)`;
+      ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(c.x, c.y); ctx.stroke();
+    });
+  }
+
+  // Points
+  points.forEach((p, i) => {
+    const color = assignments.length > 0 ? COLORS[assignments[i] % COLORS.length] : '#6b7280';
+    const col = hexToRgb(typeof color === 'string' ? color : '#6b7280');
+    // Glow
+    if (assignments.length > 0) {
+      const grd = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, 10);
+      grd.addColorStop(0, `rgba(${col.r},${col.g},${col.b},0.25)`);
+      grd.addColorStop(1, 'transparent');
+      ctx.fillStyle = grd;
+      ctx.fillRect(p.x-10, p.y-10, 20, 20);
+    }
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 3.5, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+  });
+
+  // Centroids
+  centroids.forEach((c, i) => {
+    const color = COLORS[i % COLORS.length];
+    const col = hexToRgb(color);
+    // Glow halo
+    const grd = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, 28);
+    grd.addColorStop(0, `rgba(${col.r},${col.g},${col.b},0.25)`);
+    grd.addColorStop(1, 'transparent');
+    ctx.fillStyle = grd;
+    ctx.beginPath(); ctx.arc(c.x, c.y, 28, 0, Math.PI*2); ctx.fill();
+    // Diamond shape
+    ctx.save();
+    ctx.translate(c.x, c.y);
+    ctx.rotate(Math.PI/4);
+    ctx.fillStyle = color;
+    ctx.fillRect(-6, -6, 12, 12);
+    ctx.strokeStyle = '#0e1117';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(-6, -6, 12, 12);
+    ctx.restore();
+    // Label
+    ctx.font = '500 11px "DM Mono", monospace';
+    ctx.fillStyle = color;
+    ctx.fillText(`C${i+1}`, c.x + 14, c.y - 12);
+  });
+
+  // Legend
+  legendEl.innerHTML = '';
+  if (centroids.length > 0) {
+    centroids.forEach((_, i) => {
+      const count = assignments.filter(a => a === i).length;
+      const el = document.createElement('div');
+      el.className = 'legend-item';
+      el.innerHTML = `<div class="legend-dot" style="background:${COLORS[i]};color:${COLORS[i]}"></div>C${i+1}: ${count}`;
+      legendEl.appendChild(el);
+    });
+  }
+}
+
+draw();
+setStatus('idle', 'Awaiting input');
+</script>
+</body>
+</html>
