@@ -22,3 +22,6 @@ Thumbs.db
 # Personal / sensitive
 *.env
 credentials.*
+
+# Python version (local only)
+.python-version
