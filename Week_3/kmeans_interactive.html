@@ -123,7 +123,7 @@
     font-size: 0.68rem;
     color: var(--text-dim);
   }
-  canvas {
+  canvas#canvas {
     display: block;
     cursor: crosshair;
     width: 100%;
@@ -178,6 +178,35 @@
   .card-body {
     padding: 14px;
   }
+
+  /* Status readout */
+  .readout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--border);
+    border-radius: 0 0 6px 6px;
+    overflow: hidden;
+  }
+  .readout-item {
+    background: var(--surface);
+    padding: 8px 12px;
+  }
+  .readout-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.58rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 2px;
+  }
+  .readout-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-bright);
+  }
+  .readout-item.full { grid-column: 1 / -1; }
 
   /* K selector */
   .k-row {
@@ -251,12 +280,6 @@
     overflow: hidden;
   }
   button:active { transform: scale(0.97); }
-  .btn-run {
-    background: rgba(0,154,222,0.12);
-    border-color: rgba(0,154,222,0.3);
-    color: var(--blue);
-  }
-  .btn-run:hover { background: rgba(0,154,222,0.22); box-shadow: 0 0 12px rgba(0,154,222,0.15); }
   .btn-step {
     background: rgba(0,205,108,0.1);
     border-color: rgba(0,205,108,0.25);
@@ -275,35 +298,6 @@
     color: var(--pink);
   }
   .btn-reset:hover { background: rgba(255,31,91,0.18); box-shadow: 0 0 12px rgba(255,31,91,0.12); }
-
-  /* Status readout */
-  .readout {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1px;
-    background: var(--border);
-    border-radius: 0 0 6px 6px;
-    overflow: hidden;
-  }
-  .readout-item {
-    background: var(--surface);
-    padding: 8px 12px;
-  }
-  .readout-label {
-    font-family: 'DM Mono', monospace;
-    font-size: 0.58rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--text-dim);
-    margin-bottom: 2px;
-  }
-  .readout-value {
-    font-family: 'DM Mono', monospace;
-    font-size: 0.85rem;
-    font-weight: 500;
-    color: var(--text-bright);
-  }
-  .readout-item.full { grid-column: 1 / -1; }
 
   /* Metrics */
   .metric-row {
@@ -406,9 +400,35 @@
     line-height: 1.6;
   }
 
+  /* Elbow chart */
+  .elbow-wrap {
+    position: relative;
+    padding: 10px 8px 4px 8px;
+  }
+  .elbow-wrap canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    cursor: default;
+  }
+  .elbow-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.55rem;
+    color: var(--text-dim);
+    text-align: center;
+    margin-top: 2px;
+    letter-spacing: 0.04em;
+  }
+
   /* Computation Log */
-  .log-section {
+  .elbow-row {
     margin-top: 16px;
+  }
+  .elbow-wrap {
+    padding: 10px 14px;
+  }
+  .log-section {
+    margin-bottom: 16px;
     display: none;
   }
   .log-section.visible { display: block; }
@@ -533,6 +553,18 @@
   </div>
   <div class="breadcrumb">SIT720 <span>/</span> Week 3 <span>/</span> Unsupervised Learning <span>/</span> KMeans</div>
 
+  <!-- Computation Log (above workspace) -->
+  <div class="log-section" id="log-section">
+    <div class="log-card">
+      <div class="log-header">
+        <div class="label">Computation Log</div>
+        <div class="iter-badge" id="log-iter">Iteration --</div>
+      </div>
+      <div class="log-body" id="log-body">
+      </div>
+    </div>
+  </div>
+
   <div class="workspace">
     <!-- Canvas viewport -->
     <div class="viewport">
@@ -556,34 +588,7 @@
 
     <!-- Control panel -->
     <div class="panel">
-      <!-- K Control -->
-      <div class="card">
-        <div class="card-header">Clusters (K)</div>
-        <div class="card-body">
-          <div class="k-row">
-            <div class="k-val" id="k-display">3</div>
-            <div class="k-slider-wrap">
-              <input type="range" id="k-slider" min="2" max="8" value="3">
-              <div class="range-labels"><span>2</span><span>5</span><span>8</span></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Actions -->
-      <div class="card">
-        <div class="card-header">Actions</div>
-        <div class="card-body">
-          <div class="btn-grid">
-            <button class="btn-sample btn-full" id="btn-sample">Generate Sample</button>
-            <button class="btn-run" id="btn-run">Run</button>
-            <button class="btn-step" id="btn-step">Step</button>
-            <button class="btn-reset btn-full" id="btn-reset">Clear All</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Status -->
+      <!-- Status (moved to top) -->
       <div class="card">
         <div class="card-header">Status</div>
         <div class="readout">
@@ -602,24 +607,28 @@
         </div>
       </div>
 
-      <!-- Metrics -->
-      <div class="card" id="metric-section" style="display:none">
-        <div class="card-header">Metrics</div>
+      <!-- K Control -->
+      <div class="card">
+        <div class="card-header">Clusters (K)</div>
         <div class="card-body">
-          <div class="metric-row">
-            <div class="metric-info">
-              <div class="metric-label">Distortion (SSE)</div>
-              <div class="metric-val" id="distortion-val" style="color:var(--orange)">--</div>
+          <div class="k-row">
+            <div class="k-val" id="k-display">3</div>
+            <div class="k-slider-wrap">
+              <input type="range" id="k-slider" min="2" max="8" value="3">
+              <div class="range-labels"><span>2</span><span>5</span><span>8</span></div>
             </div>
           </div>
-          <div class="metric-row">
-            <div class="metric-info">
-              <div class="metric-label">Silhouette</div>
-              <div class="metric-val" id="sil-val" style="color:var(--green)">--</div>
-            </div>
-            <div class="bar-track">
-              <div class="bar-fill" id="sil-bar" style="width:0;background:var(--green)"></div>
-            </div>
+        </div>
+      </div>
+
+      <!-- Actions (3 buttons only) -->
+      <div class="card">
+        <div class="card-header">Actions</div>
+        <div class="card-body">
+          <div class="btn-grid">
+            <button class="btn-sample btn-full" id="btn-sample">Generate Sample</button>
+            <button class="btn-step" id="btn-step">Step</button>
+            <button class="btn-reset" id="btn-reset">Clear</button>
           </div>
         </div>
       </div>
@@ -629,22 +638,20 @@
         <kbd>Click</kbd> canvas to add points.
         <kbd>Generate</kbd> for quick start.
         <kbd>Step</kbd> runs one iteration.
-        <kbd>Run</kbd> animates to convergence.
       </p>
     </div>
   </div>
 
-  <!-- Computation Log -->
-  <div class="log-section" id="log-section">
-    <div class="log-card">
-      <div class="log-header">
-        <div class="label">Computation Log</div>
-        <div class="iter-badge" id="log-iter">Iteration --</div>
-      </div>
-      <div class="log-body" id="log-body">
+  <!-- Elbow Method (full width below workspace) -->
+  <div class="elbow-row" id="bottom-row" style="display:none">
+    <div class="card">
+      <div class="card-header">Elbow Method — SSE vs K</div>
+      <div class="elbow-wrap">
+        <canvas id="elbow-canvas" width="1080" height="180"></canvas>
       </div>
     </div>
   </div>
+
 </div>
 
 <script>
@@ -658,7 +665,6 @@ let assignments = [];
 let K = 3;
 let iteration = 0;
 let converged = false;
-let running = false;
 
 const kSlider = document.getElementById('k-slider');
 const kDisplay = document.getElementById('k-display');
@@ -666,12 +672,14 @@ const statsPoints = document.getElementById('r-points');
 const statsIter = document.getElementById('r-iter');
 const statsStatus = document.getElementById('r-status');
 const legendEl = document.getElementById('legend');
-const metricSection = document.getElementById('metric-section');
 const emptyState = document.getElementById('empty-state');
 const coordsEl = document.getElementById('coords');
 const logSection = document.getElementById('log-section');
 const logBody = document.getElementById('log-body');
 const logIter = document.getElementById('log-iter');
+const bottomRow = document.getElementById('bottom-row');
+const elbowCanvas = document.getElementById('elbow-canvas');
+const elbowCtx = elbowCanvas.getContext('2d');
 let prevCentroids = [];
 
 // Mouse coordinate tracking
@@ -691,7 +699,6 @@ kSlider.addEventListener('input', () => {
 });
 
 canvas.addEventListener('click', (e) => {
-  if (running) return;
   const rect = canvas.getBoundingClientRect();
   const scaleX = canvas.width / rect.width;
   const x = (e.clientX - rect.left) * scaleX;
@@ -699,38 +706,310 @@ canvas.addEventListener('click', (e) => {
   points.push({ x, y });
   resetClustering();
   draw();
-  setStatus('ready', 'Ready -- click Run or Step');
+  setStatus('ready', 'Ready -- click Step');
 });
 
 document.getElementById('btn-sample').addEventListener('click', generateSample);
-document.getElementById('btn-run').addEventListener('click', runKMeans);
 document.getElementById('btn-step').addEventListener('click', stepKMeans);
 document.getElementById('btn-reset').addEventListener('click', () => {
   points = [];
   resetClustering();
   draw();
   setStatus('idle', 'Awaiting input');
-  metricSection.style.display = 'none';
+  bottomRow.style.display = 'none';
 });
 
+// --- Diverse data generation ---
 function generateSample() {
   points = [];
-  const numPerCluster = 60 + Math.floor(Math.random() * 40);
-  const numClusters = 3 + Math.floor(Math.random() * 3);
-  for (let c = 0; c < numClusters; c++) {
-    const cx = 80 + Math.random() * (canvas.width - 160);
-    const cy = 80 + Math.random() * (canvas.height - 160);
-    const spread = 35 + Math.random() * 50;
-    for (let i = 0; i < numPerCluster; i++) {
-      points.push({
-        x: cx + (Math.random() - 0.5) * 2 * spread + (Math.random() - 0.5) * 10,
-        y: cy + (Math.random() - 0.5) * 2 * spread + (Math.random() - 0.5) * 10
-      });
+  const W = canvas.width;
+  const H = canvas.height;
+  const margin = 60;
+
+  // Pick a random number of underlying structures (3-6)
+  const numStructures = 3 + Math.floor(Math.random() * 4);
+
+  for (let s = 0; s < numStructures; s++) {
+    const type = Math.random();
+    const cx = margin + Math.random() * (W - 2 * margin);
+    const cy = margin + Math.random() * (H - 2 * margin);
+
+    if (type < 0.3) {
+      // Elongated / elliptical cluster
+      const count = 25 + Math.floor(Math.random() * 50);
+      const angle = Math.random() * Math.PI;
+      const spreadMajor = 60 + Math.random() * 80;
+      const spreadMinor = 15 + Math.random() * 25;
+      for (let i = 0; i < count; i++) {
+        const u = gaussRandom() * spreadMajor;
+        const v = gaussRandom() * spreadMinor;
+        points.push({
+          x: cx + u * Math.cos(angle) - v * Math.sin(angle),
+          y: cy + u * Math.sin(angle) + v * Math.cos(angle)
+        });
+      }
+    } else if (type < 0.5) {
+      // Ring / arc shape
+      const count = 30 + Math.floor(Math.random() * 40);
+      const radius = 40 + Math.random() * 60;
+      const arcStart = Math.random() * Math.PI;
+      const arcSpan = Math.PI * (0.8 + Math.random() * 1.2);
+      for (let i = 0; i < count; i++) {
+        const theta = arcStart + Math.random() * arcSpan;
+        const r = radius + gaussRandom() * 12;
+        points.push({
+          x: cx + r * Math.cos(theta),
+          y: cy + r * Math.sin(theta)
+        });
+      }
+    } else if (type < 0.7) {
+      // Sparse / scattered blob (uniform)
+      const count = 20 + Math.floor(Math.random() * 30);
+      const spread = 50 + Math.random() * 70;
+      for (let i = 0; i < count; i++) {
+        points.push({
+          x: cx + (Math.random() - 0.5) * 2 * spread,
+          y: cy + (Math.random() - 0.5) * 2 * spread
+        });
+      }
+    } else if (type < 0.85) {
+      // Dense small cluster
+      const count = 15 + Math.floor(Math.random() * 25);
+      const spread = 15 + Math.random() * 20;
+      for (let i = 0; i < count; i++) {
+        points.push({
+          x: cx + gaussRandom() * spread,
+          y: cy + gaussRandom() * spread
+        });
+      }
+    } else {
+      // Asymmetric / skewed blob
+      const count = 30 + Math.floor(Math.random() * 40);
+      const spreadX = 30 + Math.random() * 60;
+      const spreadY = 20 + Math.random() * 40;
+      for (let i = 0; i < count; i++) {
+        const rx = Math.abs(gaussRandom()) * spreadX * (Math.random() < 0.3 ? 2.5 : 1);
+        const ry = gaussRandom() * spreadY;
+        points.push({
+          x: cx + rx * (Math.random() < 0.5 ? 1 : -0.4),
+          y: cy + ry
+        });
+      }
     }
   }
+
+  // Add noise points (5-15 random outliers)
+  const noiseCount = 5 + Math.floor(Math.random() * 11);
+  for (let i = 0; i < noiseCount; i++) {
+    points.push({
+      x: margin / 2 + Math.random() * (W - margin),
+      y: margin / 2 + Math.random() * (H - margin)
+    });
+  }
+
+  // Clamp points within canvas
+  points = points.map(p => ({
+    x: Math.max(5, Math.min(W - 5, p.x)),
+    y: Math.max(5, Math.min(H - 5, p.y))
+  }));
+
   resetClustering();
   draw();
-  setStatus('ready', `${points.length} points in ~${numClusters} clusters`);
+  setStatus('ready', `${points.length} points -- diverse layout`);
+
+  // Compute and show elbow chart
+  computeElbow();
+}
+
+// Box-Muller transform for normal distribution
+function gaussRandom() {
+  let u = 0, v = 0;
+  while (u === 0) u = Math.random();
+  while (v === 0) v = Math.random();
+  return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+}
+
+// --- Elbow Method ---
+function computeElbow() {
+  if (points.length < 8) { bottomRow.style.display = 'none'; return; }
+  bottomRow.style.display = 'block';
+
+  const sseValues = [];
+  for (let k = 2; k <= 8; k++) {
+    sseValues.push({ k, sse: runKMeansForSSE(k) });
+  }
+
+  drawElbow(sseValues);
+}
+
+function runKMeansForSSE(k) {
+  // Run KMeans to convergence silently, return SSE
+  let ctrds = [];
+  // KMeans++ init
+  const idx0 = Math.floor(Math.random() * points.length);
+  ctrds.push({ x: points[idx0].x, y: points[idx0].y });
+  for (let ki = 1; ki < k; ki++) {
+    const dists = points.map(p => {
+      let minD = Infinity;
+      ctrds.forEach(c => { const d = dist(p, c); if (d < minD) minD = d; });
+      return minD * minD;
+    });
+    const sum = dists.reduce((a, b) => a + b, 0);
+    let r = Math.random() * sum;
+    for (let i = 0; i < dists.length; i++) {
+      r -= dists[i];
+      if (r <= 0) { ctrds.push({ x: points[i].x, y: points[i].y }); break; }
+    }
+  }
+  if (ctrds.length < k) ctrds.push({ x: points[0].x, y: points[0].y });
+
+  let assgn = [];
+  for (let iter = 0; iter < 30; iter++) {
+    // Assign
+    const prev = [...assgn];
+    assgn = points.map(p => {
+      let minD = Infinity, best = 0;
+      ctrds.forEach((c, i) => { const d = dist(p, c); if (d < minD) { minD = d; best = i; } });
+      return best;
+    });
+    // Check convergence
+    if (prev.length === assgn.length && prev.every((v, i) => v === assgn[i])) break;
+    // Update
+    for (let ki = 0; ki < k; ki++) {
+      const cluster = points.filter((_, i) => assgn[i] === ki);
+      if (cluster.length === 0) continue;
+      ctrds[ki] = {
+        x: cluster.reduce((s, p) => s + p.x, 0) / cluster.length,
+        y: cluster.reduce((s, p) => s + p.y, 0) / cluster.length
+      };
+    }
+  }
+
+  // Compute SSE
+  let sse = 0;
+  points.forEach((p, i) => {
+    const c = ctrds[assgn[i]];
+    sse += (p.x - c.x) ** 2 + (p.y - c.y) ** 2;
+  });
+  return sse;
+}
+
+function drawElbow(sseValues) {
+  const W = elbowCanvas.width;
+  const H = elbowCanvas.height;
+  const pad = { top: 14, right: 14, bottom: 22, left: 42 };
+  const plotW = W - pad.left - pad.right;
+  const plotH = H - pad.top - pad.bottom;
+
+  elbowCtx.clearRect(0, 0, W, H);
+  elbowCtx.fillStyle = '#0e1117';
+  elbowCtx.fillRect(0, 0, W, H);
+
+  const maxSSE = Math.max(...sseValues.map(v => v.sse));
+  const minSSE = Math.min(...sseValues.map(v => v.sse));
+  const sseRange = maxSSE - minSSE || 1;
+
+  const xScale = (k) => pad.left + ((k - 2) / 6) * plotW;
+  const yScale = (sse) => pad.top + plotH - ((sse - minSSE) / sseRange) * plotH * 0.9;
+
+  // Grid lines
+  elbowCtx.strokeStyle = 'rgba(255,255,255,0.06)';
+  elbowCtx.lineWidth = 0.5;
+  for (let k = 2; k <= 8; k++) {
+    const x = xScale(k);
+    elbowCtx.beginPath(); elbowCtx.moveTo(x, pad.top); elbowCtx.lineTo(x, pad.top + plotH); elbowCtx.stroke();
+  }
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.top + (plotH / 4) * i;
+    elbowCtx.beginPath(); elbowCtx.moveTo(pad.left, y); elbowCtx.lineTo(pad.left + plotW, y); elbowCtx.stroke();
+  }
+
+  // Axis labels
+  elbowCtx.font = '500 9px "DM Mono", monospace';
+  elbowCtx.fillStyle = '#6b7280';
+  elbowCtx.textAlign = 'center';
+  for (let k = 2; k <= 8; k++) {
+    elbowCtx.fillText(k.toString(), xScale(k), pad.top + plotH + 14);
+  }
+  // Y-axis labels
+  elbowCtx.textAlign = 'right';
+  elbowCtx.fillText((maxSSE / 1000).toFixed(0) + 'k', pad.left - 4, pad.top + 8);
+  elbowCtx.fillText((minSSE / 1000).toFixed(0) + 'k', pad.left - 4, pad.top + plotH + 2);
+
+  // Line
+  elbowCtx.beginPath();
+  elbowCtx.strokeStyle = '#FFC61E';
+  elbowCtx.lineWidth = 2;
+  elbowCtx.lineJoin = 'round';
+  sseValues.forEach((v, i) => {
+    const x = xScale(v.k);
+    const y = yScale(v.sse);
+    if (i === 0) elbowCtx.moveTo(x, y);
+    else elbowCtx.lineTo(x, y);
+  });
+  elbowCtx.stroke();
+
+  // Glow under the line
+  elbowCtx.beginPath();
+  sseValues.forEach((v, i) => {
+    const x = xScale(v.k);
+    const y = yScale(v.sse);
+    if (i === 0) elbowCtx.moveTo(x, y);
+    else elbowCtx.lineTo(x, y);
+  });
+  elbowCtx.lineTo(xScale(8), pad.top + plotH);
+  elbowCtx.lineTo(xScale(2), pad.top + plotH);
+  elbowCtx.closePath();
+  const grad = elbowCtx.createLinearGradient(0, pad.top, 0, pad.top + plotH);
+  grad.addColorStop(0, 'rgba(255,198,30,0.15)');
+  grad.addColorStop(1, 'rgba(255,198,30,0)');
+  elbowCtx.fillStyle = grad;
+  elbowCtx.fill();
+
+  // Dots
+  sseValues.forEach(v => {
+    const x = xScale(v.k);
+    const y = yScale(v.sse);
+    // Glow
+    const g = elbowCtx.createRadialGradient(x, y, 0, x, y, 10);
+    g.addColorStop(0, 'rgba(255,198,30,0.3)');
+    g.addColorStop(1, 'transparent');
+    elbowCtx.fillStyle = g;
+    elbowCtx.fillRect(x - 10, y - 10, 20, 20);
+    // Dot
+    elbowCtx.beginPath();
+    elbowCtx.arc(x, y, 3.5, 0, Math.PI * 2);
+    elbowCtx.fillStyle = '#FFC61E';
+    elbowCtx.fill();
+    elbowCtx.strokeStyle = '#0e1117';
+    elbowCtx.lineWidth = 1.5;
+    elbowCtx.stroke();
+  });
+
+  // Highlight the "elbow" -- find maximum second derivative
+  if (sseValues.length >= 3) {
+    let maxCurve = -Infinity, elbowIdx = 1;
+    for (let i = 1; i < sseValues.length - 1; i++) {
+      const curve = sseValues[i - 1].sse - 2 * sseValues[i].sse + sseValues[i + 1].sse;
+      if (curve > maxCurve) { maxCurve = curve; elbowIdx = i; }
+    }
+    const ek = sseValues[elbowIdx];
+    const ex = xScale(ek.k);
+    const ey = yScale(ek.sse);
+    // Arrow / marker
+    elbowCtx.beginPath();
+    elbowCtx.arc(ex, ey, 8, 0, Math.PI * 2);
+    elbowCtx.strokeStyle = 'rgba(255,198,30,0.5)';
+    elbowCtx.lineWidth = 1.5;
+    elbowCtx.setLineDash([3, 2]);
+    elbowCtx.stroke();
+    elbowCtx.setLineDash([]);
+    // Label
+    elbowCtx.font = '500 8px "DM Mono", monospace';
+    elbowCtx.fillStyle = '#FFC61E';
+    elbowCtx.textAlign = 'center';
+    elbowCtx.fillText('elbow', ex, ey - 12);
+  }
 }
 
 function resetClustering() {
@@ -739,9 +1018,8 @@ function resetClustering() {
   assignments = [];
   iteration = 0;
   converged = false;
-  running = false;
   legendEl.innerHTML = '';
-  metricSection.style.display = 'none';
+  bottomRow.style.display = 'none';
   logSection.classList.remove('visible');
   statsPoints.textContent = points.length;
   statsIter.textContent = '--';
@@ -757,22 +1035,16 @@ function setStatus(state, msg) {
 }
 
 function initCentroids() {
+  // Random initialization: pick K random data points as initial centroids
   centroids = [];
-  const idx = Math.floor(Math.random() * points.length);
-  centroids.push({ x: points[idx].x, y: points[idx].y });
-  for (let k = 1; k < K; k++) {
-    const dists = points.map(p => {
-      let minD = Infinity;
-      centroids.forEach(c => { const d = dist(p, c); if (d < minD) minD = d; });
-      return minD * minD;
-    });
-    const sum = dists.reduce((a, b) => a + b, 0);
-    let r = Math.random() * sum;
-    for (let i = 0; i < dists.length; i++) {
-      r -= dists[i];
-      if (r <= 0) { centroids.push({ x: points[i].x, y: points[i].y }); break; }
-    }
+  const indices = [];
+  while (indices.length < K) {
+    const idx = Math.floor(Math.random() * points.length);
+    if (!indices.includes(idx)) indices.push(idx);
   }
+  indices.forEach(idx => {
+    centroids.push({ x: points[idx].x, y: points[idx].y });
+  });
 }
 
 function dist(a, b) { return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2); }
@@ -842,38 +1114,8 @@ function stepKMeans() {
     assignPoints();
     iteration++;
   }
-  draw(); showMetrics(); buildLog();
+  draw(); buildLog();
   setStatus(converged ? 'done' : 'running', converged ? `Converged @ iter ${iteration}` : `Iteration ${iteration}`);
-}
-
-async function runKMeans() {
-  if (points.length < K) { setStatus('idle', `Need >= ${K} points`); return; }
-  running = true;
-  resetClustering();
-  initCentroids();
-  for (let i = 0; i < 50; i++) {
-    assignPoints(); iteration = i + 1;
-    draw(); showMetrics();
-    setStatus('running', `Running iter ${iteration}...`);
-    await sleep(280);
-    if (converged) break;
-    updateCentroids(); draw();
-    await sleep(180);
-  }
-  running = false;
-  setStatus('done', converged ? `Converged @ iter ${iteration}` : `Max iters (${iteration})`);
-}
-
-function showMetrics() {
-  metricSection.style.display = 'block';
-  document.getElementById('distortion-val').textContent = computeDistortion().toFixed(0);
-  if (points.length <= 500) {
-    const s = computeSilhouette();
-    document.getElementById('sil-val').textContent = s.toFixed(3);
-    document.getElementById('sil-bar').style.width = Math.max(0, (s + 1) / 2 * 100) + '%';
-  } else {
-    document.getElementById('sil-val').textContent = 'n > 500';
-  }
 }
 
 function buildLog() {
@@ -954,8 +1196,6 @@ function buildLog() {
 
   logBody.innerHTML = assignHTML + updateHTML;
 }
-
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 function hexToRgb(hex) {
   return { r: parseInt(hex.slice(1,3),16), g: parseInt(hex.slice(3,5),16), b: parseInt(hex.slice(5,7),16) };
